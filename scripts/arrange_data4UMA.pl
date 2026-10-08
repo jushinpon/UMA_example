@@ -31,7 +31,21 @@ my $opt2_steps = 250;
 my $opt2_fmax = 0.05;
 my $npt_steps = 250;#not larger than 999
 my $do_supercell = 0; # 0 / 1
-my $timestep = 1.5; # fs, for bulk UMA simulations without covalent bonds, 2.0 fs is recommended, For simulations with molecules or covalent bonds, 1.5 fs is recommended.
+
+## Equilibrium MD (silent, no QE output; set eq_steps=0 to skip)
+my $eq_steps = 500;     # 0 = skip equilibrium MD
+my $eq_temp = 300;      # K
+my $eq_press = 0;       # GPa
+my $eq_timestep = 1.5;  # fs
+
+## Production MD (with QE output, heating ramp)
+my $prod_steps = 250;     # production MD steps (0 = SCF only)
+my $prod_low = 300;       # K — heating ramp start
+my $prod_high = 600;      # K — heating ramp end
+my $prod_press = 0;       # GPa
+my $prod_timestep = 1.5; # fs, for bulk UMA simulations without covalent bonds, 2.0 fs is recommended, For simulations with molecules or covalent bonds, 1.5 fs is recommended.
+my $prod_freq = 5;       # output frequency: mod(step, prod_freq)==0 writes QE output
+
 my ($bulk_cx, $bulk_cy, $bulk_cz) = (0, 0, 0);
  
 #You must assign proper surface_cx, surface_cy, surface_cz for surface systems, 0 for not change lengths along that direction.
@@ -74,9 +88,16 @@ for my $of (@ori_folders){
     'opt2_fmax',
     'npt_steps',
     'do_supercell',
-    'temp',
-    'press',
-    'timestep',
+    'eq_steps',
+    'eq_temp',
+    'eq_press',
+    'eq_timestep',
+    'prod_steps',
+    'prod_low',
+    'prod_high',
+    'prod_press',
+    'prod_timestep',
+    'prod_freq',
     'cx',
     'cy',
     'cz',
@@ -124,7 +145,7 @@ for my $f (@all_data_files){
 
             my $INPUT_data = "$out_folder/$folder-UMA/$foldname/$foldname.data";
 
-            #INPUT.data opt1_steps opt1_fmax opt2_steps opt2_fmax npt_steps do_supercell(0/1)  temp(K) press(GPa) timestep(fs)  cx cy cz model task
+            #INPUT.data opt1_steps opt1_fmax opt2_steps opt2_fmax npt_steps do_supercell  eq_steps eq_temp eq_press eq_timestep  prod_steps prod_low prod_high prod_press prod_timestep prod_freq  cx cy cz model task
             my %para = (
                 python_path => "python -u $python_path",
                 INPUT_data   => $INPUT_data,
@@ -134,9 +155,16 @@ for my $f (@all_data_files){
                 opt2_fmax    => $opt2_fmax,
                 npt_steps    => $npt_steps,
                 do_supercell => $do_supercell,   # 0 / 1
-                temp         => $temp,           # K
-                press        => $press,          # GPa
-                timestep     => $timestep,       # fs
+                eq_steps     => $eq_steps,       # 0 = skip eq MD
+                eq_temp      => $eq_temp,        # K
+                eq_press     => $eq_press,       # GPa
+                eq_timestep  => $eq_timestep,    # fs
+                prod_steps    => $prod_steps,    # production MD steps
+                prod_low     => $prod_low,       # K — heating start
+                prod_high    => $prod_high,      # K — heating end
+                prod_press   => $prod_press,      # GPa
+                prod_timestep=> $prod_timestep,   # fs
+                prod_freq    => $prod_freq,       # output frequency
                 cx           => $cx,
                 cy           => $cy,
                 cz           => $cz,
@@ -242,7 +270,7 @@ print("CPU count (torch)   :", torch.get_num_threads())
 EOF
 echo "======================================================="
 
-#python gptfakeQE.py INPUT.data opt1_steps opt1_fmax opt2_steps opt2_fmax npt_steps do_supercell(0/1)  temp(K) press(GPa) timestep(fs)  cx cy cz model task
+#python gptfakeQE.py INPUT.data opt1_steps opt1_fmax opt2_steps opt2_fmax npt_steps do_supercell  eq_steps eq_temp eq_press eq_timestep  prod_steps prod_low prod_high prod_press prod_timestep prod_freq  cx cy cz model task
 #python gptfakeQE.py 20260105_093642_optimized_out-fcc-Al04Co33Cr22Fe15Mo01Nb01Ni25Ta01Ti02W01_out.data 1 0.2 1 0.1 1 1 400.0 1.0 2.0 0 0 0 1 1 1 uma-s-1p1 omat
 #see usage in fairchem.py
 rm -f *.sout
