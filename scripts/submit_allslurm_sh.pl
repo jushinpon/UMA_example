@@ -13,9 +13,21 @@ use POSIX;
 use Parallel::ForkManager;
 use List::Util qw/shuffle/;
 
-my $filefold = "$ENV{HOME}/UMA_example/UMA_inputs";
-
 my $currentPath = getcwd();# dir for all scripts
+
+# Resolve UMA_inputs from this script's own location, so the repository works
+# no matter where it is cloned.
+use FindBin;
+use File::Spec;
+my $repo_root = Cwd::abs_path(File::Spec->catdir($FindBin::Bin, ".."));
+die "Cannot resolve repo root from $FindBin::Bin!" unless defined $repo_root && -d $repo_root;
+my $filefold = "$repo_root/UMA_inputs";
+
+if (@ARGV && $ARGV[0] eq "--check-paths") {
+    print "repo root  : $repo_root\n";
+    print "job folder : $filefold\n";
+    exit 0;
+}
 
 my $forkNo = 1;#although we don't have so many cores, only for submitting jobs into slurm
 my $pm = Parallel::ForkManager->new("$forkNo");

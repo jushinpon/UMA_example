@@ -6,11 +6,26 @@ Then place all those categorized folders in a main folder "categorized_data4UMA"
 use warnings;
 use strict;
 use Cwd;
+use FindBin;
+use File::Spec;
 
 my $currentPath = getcwd();
-my $data_main_folder = "$ENV{HOME}/UMA_example/categorized_data4UMA";#folder where you place all your QE input files (abs path)
-#my $QE_folder = "QE_trimmed4md";#folder where you place all your QE input files
-my $out_folder = "$ENV{HOME}/UMA_example/UMA_inputs";#folder having all subfolders (the same prefixes as QE input file) with the QE input
+
+# Resolve the repo layout from this script's own location, so the pipeline works
+# no matter where the repository is cloned (~/UMA_example, ~/projects/fork, ...).
+# Run it from anywhere:  perl /path/to/repo/scripts/arrange_data4UMA.pl
+my $repo_root = Cwd::abs_path(File::Spec->catdir($FindBin::Bin, ".."));
+die "Cannot resolve repo root from $FindBin::Bin!" unless defined $repo_root && -d $repo_root;
+
+my $data_main_folder = "$repo_root/categorized_data4UMA";#folder where you place all your .data files (rel. to repo root)
+my $out_folder = "$repo_root/UMA_inputs";#folder having all subfolders (the same prefixes as data file) with the job scripts
+
+if (@ARGV && $ARGV[0] eq "--check-paths") {
+    print "repo root          : $repo_root\n";
+    print "data_main_folder   : $data_main_folder\n";
+    print "out_folder         : $out_folder\n";
+    exit 0;
+}
 `rm -rf $out_folder`;
 `mkdir $out_folder`;
 ## set Temperature and press 
@@ -21,9 +36,9 @@ my @press = (0);
 my $model = "uma-s-1p1"; #uma-s-1p1 uma-s-2p0 uma-m-1p1 uma-m-2p0
 my $task = "omat";  #omat omdyn
 
-my $python_path = `readlink -f ./gptfakeQE.py 2>/dev/null`;
-chomp $python_path;
-die "No gptfakeQE.py found!" unless -f $python_path;
+# resolve gptfakeQE.py next to this script (not from the current directory)
+my $python_path = Cwd::abs_path(File::Spec->catfile($FindBin::Bin, "gptfakeQE.py"));
+die "No gptfakeQE.py found at $FindBin::Bin!" unless -f $python_path;
 
 my $opt1_steps = 250;
 my $opt1_fmax = 0.1;
