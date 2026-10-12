@@ -131,6 +131,11 @@ perl arrange_data4UMA.pl
 > - Surface with vacuum in z: use `1,1,0`
 > - Nanowire along z: use `0,0,1`
 
+> **DeePMD 訓練慣例(提案資料集):** 單一 `model=uma-s-1p2p1` + `task=oc25`;
+> `eq_steps=10000`、`prod_steps=10000`、`prod_freq=20` → 每 job **501 幀**
+> (1 初始 + 500 生產),等同 QE DFT-MD 慣例。每類資料的完整建議參數
+> (含 EQ/PROD)見 `AGENTS_WORKFLOW.md` Step 3。
+
 ### Step 2: Submit All Jobs
 
 ```bash
@@ -324,10 +329,18 @@ For input `MyAlloy-T300-P0.data`:
 The `.sout` file mimics real Quantum ESPRESSO output:
 
 1. **Iteration=1 block** — energy, forces, stress for initial structure (`000.data`)
-2. **Energy blocks** — prod_steps/prod_freq blocks with "! total energy" markers (at steps where mod(step, prod_freq)==0)
+2. **Energy blocks** — 1 initial block (Iteration=1) + prod_steps/prod_freq loop blocks with "! total energy" markers (at steps where mod(step, prod_freq)==0)
 3. **Final geometry** — `CELL_PARAMETERS` and `ATOMIC_POSITIONS` for the last step, but **no** `! total energy` block
 
-> **Rule:** `nstep = prod_steps // prod_freq` → number of QE output blocks in `.sout`.
+> **Rule:** loop blocks = `prod_steps // prod_freq`; total `!` blocks = that + 1
+> (the initial Iteration=1 block). DeePMD convention `10000/20` → **501 frames**
+> per job (1 initial + 500 production) — the same 501-frame accounting as a
+> QE DFT-MD run.
+
+> **External artifacts:** `QEout_plot.png` and `sout_data.csv` in each job dir
+> are written by `/opt/qe_perl/QEout_analysis.pl` (invoked at job end) — not by
+> `gptfakeQE.py`/`plot_thermo.py`. `thermo_summary.png` and `*_eq_profile.png`
+> come from the repo itself.
 
 ### Example Commands
 

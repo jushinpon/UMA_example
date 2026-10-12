@@ -72,7 +72,7 @@ done
 | 參數 | Default | 說明 | 問使用者 |
 |------|---------|------|----------|
 | `$model` | `uma-s-1p2p1` | UMA 模型 | 要用 small 還是 medium？ |
-| `$task` | `omat` | FairChem task | omat/oc20/omol/odac/omc/oc22/oc25？ |
+| `$task` | `omat` | FairChem task | **提案資料集固定 `oc25`**(見下方「單一理論層級」原則) |
 | `@tempw` | `(300)` | 溫度 (K) | 要跑哪些溫度？ |
 | `@press` | `(0)` | 壓力 (GPa) | 要跑哪些壓力？ |
 | `$opt1_steps` | `250` | OPT-1 步數 | 需要調整嗎？ |
@@ -80,24 +80,44 @@ done
 | `$opt2_steps` | `250` | OPT-2 步數 | |
 | `$opt2_fmax` | `0.05` | OPT-2 收斂 threshold (eV/A) | |
 | `$npt_steps` | `250` | MD 步數 (0=SCF only) | |
-| `$eq_steps` | (from .pl) | Eq MD 步數 | |
-| `$prod_low` | `300` | Prod MD 起始溫度 (K) | Heating ramp 起始溫度？ |
-| `$prod_high` | `600` | Prod MD 終止溫度 (K) | Heating ramp 終止溫度？ |
-| `$prod_freq` | (from .pl) | 輸出頻率 | |
-| `$timestep` | `1.5` | MD timestep (fs) | 金屬用2.0，共價用1.5 |
+| `$eq_steps` | `10000` | Eq MD 步數 | 與 prod 等長(repo 預設 500,培訓改 10000) |
+| `$eq_temp` | `300` | Eq 溫度 (K) | 全類型 300 |
+| `$eq_press` | `0` | Eq 壓力 (GPa) | 全類型 0 |
+| `$eq_timestep` | 見類別表 | Eq timestep (fs) | 與 prod_timestep 相同 |
+| `$prod_steps` | `10000` | Prod MD 步數 | 配 freq=20 → 501 幀 |
+| `$prod_low` | `300` | Prod MD 起始溫度 (K) | 全類型 300 |
+| `$prod_high` | `600` | Prod MD 終止溫度 (K) | 依類別表(360–900 K) |
+| `$prod_press` | `0` | Prod 壓力 (GPa) | 全類型 0 |
+| `$prod_timestep` | 見類別表 | Prod timestep (fs) | 金屬 2.0 / 共價 1.5 / 含水 1.0 |
+| `$prod_freq` | `20` | 輸出頻率 | 10000/20 = 500 + 初始幀 = **501** |
 | `$do_supercell` | `0` | 自動 supercell | 納米粒子建議 1 |
 | `($cx,$cy,$cz)` | `(0,0,0)` | Cell DOF | bulk: 1,1,1; surface: 1,1,0 |
 
-### 不同資料類型的建議參數
+### 單一理論層級原則(必須)
 
-| 類型 | model | task | temp | timestep | do_supercell | cell DOF |
-|------|-------|------|------|----------|--------------|----------|
-| Bulk 合金 | uma-s-1p2p1 | omat | 300 | 2.0 | 0 | 1,1,1 |
-| 納米粒子 (NP) | uma-s-1p2p1 | omat | 300 | 2.0 | **1** | 0,0,0 |
-| 表面 (surface) | uma-s-1p2p1 | omat | 300 | 1.5 | 0 | 1,1,0 |
-| 分子 | uma-s-1p2p1 | omol | 300 | 1.0 | 0 | 0,0,0 |
-| 催化 (氧化物) | uma-s-1p2p1 | **oc22** | 300 | 1.5 | 0 | 1,1,0 |
-| 電催化 | uma-s-1p2p1 | **oc25** | 300 | 1.5 | 0 | 1,1,0 |
+同一個訓練資料集只用一組 `model` + `task`(如同一份 DFT 資料庫只有一種設定)。
+本提案(電催化界面)固定:`model = uma-s-1p2p1`,`task = oc25`。
+不同類型的資料**不可混用不同 task**(omat/omol/oc22…) — 混頭的資料庫
+訓練出的 DeePMD 模型沒有單一理論層級可言。
+
+### 每類資料的建議參數(含 EQ/PROD)
+
+所有類型共通:`eq_steps=10000`、`eq_temp=300`、`eq_press=0`、
+`prod_steps=10000`、`prod_press=0`、`prod_freq=20`
+→ 每 job **501 幀**(1 個初始幀 + 10000/20 = 500 個生產幀),
+等同 QE DFT-MD 的 501 幀慣例。opt1/opt2/npt 用 repo 預設 250 步。
+
+| 類型(資料夾) | timestep (fs) | prod ramp (K) | cell DOF (bulk / surface) | do_supercell |
+|---|---|---|---|---|
+| bulk(fcc 金屬) | 2.0 | 300→900 | 1,1,1 / 0,0,0 | 0 |
+| cluster(奈米粒子) | 2.0 | 300→600 | 0,0,0 / 0,0,0 | **1** |
+| surface(清潔 slab) | 1.5 | 300→600 | 0,0,0 / 1,1,0 | 0 |
+| surface_ads(吸附物覆蓋) | 1.5 | 300→500 | 0,0,0 / 1,1,0 | 0 |
+| surface_wet(wet / PCET / 界面) | 1.0 | 300→400 | 0,0,0 / 1,1,0 | 0 |
+| solvent(水 / 水+離子) | 1.0 | 300→360 | 1,1,1 / 0,0,0 | 0 |
+
+每類的科學理由(ramp 上限、timestep、cell DOF)見提案 repo
+`deepmd/scripts/uma_pipeline/category_params.py` 內各類別的 `reason` 註解。
 
 **確認事項：**
 - [ ] 使用者確認或修改參數
@@ -158,6 +178,24 @@ perl submit_allslurm_sh.pl
 
 ---
 
+## Step 7: 完工驗收
+
+job 標記完成後,每個 job 目錄必須滿足(以 `prod_steps=10000`、`prod_freq=20` 慣例):
+
+```bash
+ls <job_dir>/data_files/*.data | wc -l    # → 501
+grep -c "^!" <job_dir>/<name>.sout        # → 501
+```
+
+- `thermo_summary.png` 必須有曲線(空白面板 → `plot_thermo.py` 過時,見 `docs/RUNBOOK.md`)
+- `<name>.err` 不得有 traceback;`.sout` 不得出現 divergence 中止
+
+**確認事項：**
+- [ ] 501 / 501 通過
+- [ ] 0 traceback
+
+---
+
 ## ⚠️ 絕對不可做的事
 
 1. **不可跳過 Step 1-3 直接提交** — 必須先確認 data 和參數
@@ -177,4 +215,5 @@ Step 3: 問參數 → 展示 default，詢問修改
 Step 4: 改 .pl → 備份 + 修改
 Step 5: 生成 → perl arrange_data4UMA.pl
 Step 6: 確認 → 報告數量 + 等使用者說 OK → sbatch
+Step 7: 驗收 → data_files=501、grep -c '^!'=501、.err 無 traceback
 ```

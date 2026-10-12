@@ -88,6 +88,54 @@ sbatch test_heating.sh
 - Model loading: First run downloads model weights; subsequent runs use cache
 - Output: data_files/ dir contains .data snapshots; .sout is fake QE output
 
+## PBC Handling (automatic)
+
+The `.data` format cannot carry boundary flags, so `gptfakeQE.py` infers PBC
+from geometry per job:
+
+- Rule: any axis whose largest empty gap is ≥ 6.0 Å is treated as non-periodic.
+- Expectations: bulk → `T T T`; isolated cluster → `F F F`; slab/surface →
+  `T T F` (vacuum in z); water / solvated box → `T T T`.
+- Override when geometry is borderline: env var `UMA_PBC="T T F"` (three
+  space-separated flags) forces one setting for the whole job.
+- Every log carries the verdict: `[PBC] T T F (vacuum-gap rule, ...)`.
+- Cell DOF (`cx cy cz`) must agree with PBC: never relax the vacuum axis.
+
+## Health Guards (built into gptfakeQE.py)
+
+- `dof == 0` (all atoms fixed, e.g. OPT-1) → temperature is reported as 0.0
+  instead of `ZeroDivisionError`.
+- Cell assertions wrap atoms across **periodic** axes only (ASE MD does not
+  wrap); an atom past a vacuum boundary still fails the run.
+- EQ/PROD loops abort at the first non-finite E/T/volume or T > 5000 K
+  (`[EQ-MD]/[PROD-MD] divergence at step N: ...`) **before** any corrupted
+  frame is written. A diverged partial run is poison — do not train on it.
+
+## Output Contract (one finished job)
+
+With the DeePMD convention `prod_steps=10000`, `prod_freq=20`:
+
+| Artifact | Expected |
+|---|---|
+| `data_files/*.data` | **501** snapshots (1 initial + 10000/20) |
+| `*.sout` | **501** `!` energy blocks (same count) |
+| `stage_*.txt` | opt1/opt2/eq/prod logs; eq/prod start with `# step ...` header |
+| `thermo_summary.png` | 6 panels **with curves** (blank panels = stale plot_thermo.py, see docs/RUNBOOK.md) |
+| `*_eq_profile.png`, `QEout_plot.png`, `sout_data.csv` | eq 4-panel from the engine; QEout pair from external `/opt/qe_perl/QEout_analysis.pl` |
+
+Quick verify: `ls <job>/data_files | wc -l` and `grep -c "^!" <job>/<name>.sout`
+both → 501.
+
+## Parameter Policy for DeePMD training datasets
+
+- **One level of theory per dataset**: a single `model` + `task` for every
+  file (like one DFT setting for a whole dataset). The electrocatalysis
+  proposal uses `uma-s-1p2p1` + `oc25`. Never mix heads (omat/omol/oc22)
+  inside one training database.
+- Sampling conditions may vary per data class (timestep, heating ramp,
+  cell DOF). The full per-class suggestion table **including EQ/PROD
+  parameters** is in `AGENTS_WORKFLOW.md` Step 3.
+
 ## File Roles
 
 | File | Role |
@@ -97,4 +145,6 @@ sbatch test_heating.sh
 | submit_allslurm_sh.pl | Submit all generated .sh scripts via sbatch |
 | check_UMAjobs.pl | Monitor job status (Done/Running/Dead) |
 | submit_sh4allDead.pl | Resubmit failed jobs |
+| plot_thermo.py | Generates `thermo_summary.png` per job dir (run at job end) |
 | mustRead.md | Detailed gptfakeQE.py manual |
+| docs/RUNBOOK.md | Symptom → action triage table |
