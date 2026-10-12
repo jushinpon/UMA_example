@@ -127,7 +127,8 @@ def _measure_atoms(atoms) -> dict:
         "P_GPa": hydro_press_gpa,
         "energy_eV": float(atoms.get_potential_energy()),
         "fmax_eV_A": float(np.max(np.linalg.norm(atoms.get_forces(), axis=1))) if n_atoms > 0 else 0.0,
-        "T_K": float(atoms.get_temperature()),
+        "T_K": (float(atoms.get_temperature())
+                if atoms.get_number_of_degrees_of_freedom() > 0 else 0.0),
         "density_g_cm3": mass_total / vol * 1.66053907,
     }
 
