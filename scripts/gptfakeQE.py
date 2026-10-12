@@ -503,12 +503,38 @@ def parse_lammps_box_origin(path):
 
 
 def assert_atoms_inside_cell(atoms, stage, tolerance=1e-8):
-    scaled = atoms.get_scaled_positions(wrap=False)
+    # ASE optimizers/MD never wrap: an atom may sit just beyond [0,1) after
+    # crossing a PERIODIC boundary, which is physically equivalent. Wrap only
+    # the periodic axes (get_scaled_positions(wrap=True) honours atoms.pbc),
+    # persist the wrapped coordinates so every frame written downstream stays
+    # canonical, and keep the strict bound check for the vacuum axes, where
+    # leaving the box really means an atom escaped.
+    scaled = atoms.get_scaled_positions(wrap=True)
     outside_mask = np.any((scaled < -tolerance) | (scaled > 1.0 + tolerance), axis=1)
     outside_ids = np.flatnonzero(outside_mask)
     if len(outside_ids):
         shown = ", ".join(str(int(i) + 1) for i in outside_ids[:20])
         raise RuntimeError(f"{stage}: {len(outside_ids)}/{len(atoms)} atoms outside cell; IDs: {shown}")
+    atoms.set_scaled_positions(scaled)
+
+
+MD_MAX_TEMP_K = 5000.0
+
+
+def _check_md_health(m, stage, step):
+    """Fail fast when an MD stage diverges: abort BEFORE any corrupted frame
+    reaches the fake-QE output. A UMA surrogate can occasionally emit a bad
+    force; without this guard the trajectory writes garbage frames first and
+    dies later with a confusing low-level error."""
+    finite = (np.isfinite(m["energy_eV"]) and np.isfinite(m["T_K"])
+              and np.isfinite(m["vol_A3"]))
+    if not finite or m["T_K"] > MD_MAX_TEMP_K:
+        raise RuntimeError(
+            "[%s] divergence at step %s: E=%s T=%.3f K vol=%s A^3 "
+            "(limits: finite, T <= %s K) - aborting before writing "
+            "corrupted frames" % (stage, step, m["energy_eV"],
+                                    m["T_K"], m["vol_A3"],
+                                    MD_MAX_TEMP_K))
 
 
 def get_types_array(atoms, mass_map):
@@ -761,6 +787,7 @@ def main():
         for s in range(1, eq_steps + 1):
             dyn_eq.run(1)
             m = _measure_atoms(final_atoms)
+            _check_md_health(m, "EQ-MD", s)
             eq_log.log(step=s, time_fs=s * eq_timestep_fs,
                        energy_eV=m["energy_eV"] / n_atoms_total,
                        T_K=m["T_K"], P_GPa=m["P_GPa"],
@@ -857,6 +884,7 @@ def main():
 
             # Log every step to txt
             m = _measure_atoms(final_atoms)
+            _check_md_health(m, "PROD-MD", step)
             prod_log.log(step=step, time_fs=step * prod_timestep_fs,
                          energy_eV=m["energy_eV"] / n_atoms_total,
                          T_K=m["T_K"], P_GPa=m["P_GPa"],
