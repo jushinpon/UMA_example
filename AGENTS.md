@@ -6,7 +6,7 @@
 FairChem UMA (Universal Materials Approach) ML potential pipeline.
 Replaces expensive DFT calculations with machine-learning inference for relaxation + MD.
 
-**Cluster:** `cluster186-jsp` · **Conda env:** `fairchem` · **Partition:** `All`
+**Cluster:** any Slurm cluster (SSH alias/hostname is local configuration, not part of this repo) · **Conda env:** `fairchem` · **Partition:** `All` (the `.pl` default)
 
 ## Pipeline
 

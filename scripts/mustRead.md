@@ -219,7 +219,7 @@ Masses
 ### Software (auto-loaded by `.sh` scripts)
 
 - Python 3 with: `ase`, `numpy`, `torch`, `fairchem-core`
-- Conda environment: `fairchem` (on cluster186: `/opt/anaconda3/envs/fairchem`)
+- Conda environment: `fairchem` (typical path: `/opt/anaconda3/envs/fairchem`)
 
 ---
 

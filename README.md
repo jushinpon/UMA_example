@@ -1,6 +1,6 @@
 # UMA Example — FairChem ML Potential Pipeline
 
-> **Cluster:** `cluster186-jsp` · **Conda env:** `fairchem` · **FairChem:** 2.13.0 · **PyTorch:** 2.8.0 (CPU)
+> **Cluster:** any Slurm cluster (site SSH alias is local config) · **Conda env:**`fairchem` · **FairChem:** 2.13.0 · **PyTorch:** 2.8.0 (CPU)
 
 ---
 
