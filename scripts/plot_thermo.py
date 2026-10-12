@@ -30,16 +30,22 @@ def read_stage(path: str) -> dict[str, list] | None:
     with open(path) as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#"):
+            if not line:
                 continue
+            if line.startswith("#"):
+                # StageLogger writes the column header as a "#" comment; older
+                # files may carry it uncommented.  Accept both: a comment
+                # holding non-numeric tokens IS the header (data lines are
+                # never commented).
+                line = line[1:].strip()
+                if not line:
+                    continue
             parts = line.split()
             if not cols:
-                # header line (skip leading comment-stripped header)
-                # detect if first token is numeric
+                # header row = leading non-numeric tokens (step time_fs ...)
                 try:
                     float(parts[0])
                 except ValueError:
-                    # this is the header row
                     for p in parts:
                         cols[p] = []
                     continue
