@@ -84,3 +84,28 @@ Blending raw labels from two heads is none of these.
 - ZPE corrections via vibrational frequencies and NEB barriers via
   `ase.mep.DyNEB` are demonstrated there and can be reused for PCET /
   adsorption-energy analysis after training.
+
+## 6. Executed official notebook: UMA vs DFT accuracy (the noise floor)
+
+Source: `uma_catalysis_tutorial.ipynb` (jupytext twin of the .md above, but
+with 35 **executed** cells; fairchem 2.12.1.dev12+g0b41cd85, Python 3.12).
+Task usage in its code: `omat` x2 (bulk + slab relaxation), `oc20` x7
+(adsorbate / coverage / NEB), never `oc25` - gas-phase catalysis domain.
+The .md export carries no outputs; these numbers exist only in the .ipynb.
+
+| Quantity (Ni systems) | UMA(+D3) | DFT / paper | Delta |
+|---|---|---|---|
+| Lattice constant | 3.52 A | 3.524 A (exp) | 0.25% |
+| Surface energy (4 facets) | 1.92-2.36 J/m2 | 1.92-2.29 | 0.2-4.2% |
+| E_ads(H) + ZPE on Ni(111) | -0.55 eV | -0.60 eV | 0.05 eV |
+| CO adsorption + ZPE | -2.03 eV | -1.82 eV | 0.21 eV |
+| C*+O* -> CO* rxn energy +ZPE | -1.14 eV | -1.48 eV | 0.34 eV |
+| NEB forward barrier | 1.32 eV | 1.59 eV | 0.27 eV |
+| H coverage slope | 3.4 kJ/mol/ML | 8.7 kJ/mol/ML | 2.5x |
+
+Takeaway for this pipeline: the *reference engine itself* deviates from DFT
+by 0.05-0.34 eV on surface thermochemistry. That is the accuracy floor of
+every label we generate. A trained DeePMD model can only be validated
+against these UMA labels (surrogate-relative), and any external PBE+D3
+hold-out must be read with +-0.1-0.3 eV in mind - do not treat larger
+agreement as meaningful, and do not treat smaller disagreement as a bug.
