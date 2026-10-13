@@ -135,6 +135,9 @@ both → 501.
 - Sampling conditions may vary per data class (timestep, heating ramp,
   cell DOF). The full per-class suggestion table **including EQ/PROD
   parameters** is in `AGENTS_WORKFLOW.md` Step 3.
+- Evidence log (why mixing task heads corrupts a training set, why `oc25`
+  is the solid-liquid-interface head, empirical head comparison, official
+  tutorial cross-references): `docs/theory-level.md`.
 
 ## File Roles
 
@@ -147,4 +150,5 @@ both → 501.
 | submit_sh4allDead.pl | Resubmit failed jobs |
 | plot_thermo.py | Generates `thermo_summary.png` per job dir (run at job end) |
 | mustRead.md | Detailed gptfakeQE.py manual |
+| docs/theory-level.md | Evidence log: one-task policy, oc25 domain, head comparison |
 | docs/RUNBOOK.md | Symptom → action triage table |
