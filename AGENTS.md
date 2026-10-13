@@ -138,6 +138,8 @@ both → 501.
 - Evidence log (why mixing task heads corrupts a training set, why `oc25`
   is the solid-liquid-interface head, empirical head comparison, official
   tutorial cross-references): `docs/theory-level.md`.
+- Optional D3 dispersion correction (knowledge note; NOT applied in
+  production, opt-in only): `docs/dispersion-d3.md`.
 
 ## File Roles
 
