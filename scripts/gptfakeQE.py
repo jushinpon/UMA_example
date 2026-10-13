@@ -879,7 +879,7 @@ def main():
         for step in range(1, prod_steps + 1):
             ramp_frac = (step - 1) / (prod_steps - 1) if prod_steps > 1 else 1.0
             current_temp_k = prod_low_k + ramp_frac * (prod_high_k - prod_low_k)
-            dyn.set_temperature(current_temp_k)
+            dyn.set_temperature(temperature_K=current_temp_k)
             dyn.run(1)
 
             # Log every step to txt
