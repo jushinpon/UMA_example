@@ -40,8 +40,8 @@ python gptfakeQE.py <input_data> <opt1_steps> <opt1_fmax> <opt2_steps> <opt2_fma
 | `prod_high_K` | Production MD ending temperature (heating ramp high) |
 | `prod_freq` | Output frequency: mod(step, prod_freq)==0 writes QE output |
 | `cx cy cz` | 0/1 flags for cell DOF. 0 0 0 = NVT (cell fixed) |
-| `MODEL_NAME` | e.g. uma-s-1p1, uma-s-2p0, uma-m-1p1 |
-| `TASK_NAME` | e.g. omat, omdyn |
+| `MODEL_NAME` | `uma-s-1p2p1` (production default), `uma-s-1p1`, `uma-s-1` |
+| `TASK_NAME` | UMA 1.2 heads: `omat`, `omol`, `oc20`, `oc22`, `oc25`, `odac`, `omc`. Production uses `oc25`; `omdyn` is **not** a FairChem task. |
 
 ### Temperature Ramp
 
@@ -57,9 +57,9 @@ Production MD applies a linear temperature ramp:
 # Activate conda
 source /opt/anaconda3/bin/activate fairchem
 
-# Arrange data + generate Slurm scripts
-cd ~/UMA_example/scripts
-perl arrange_data4UMA.pl
+# Arrange data + generate Slurm scripts (any cwd works — the .pl finds the repo root)
+perl ~/UMA_example/scripts/arrange_data4UMA.pl
+# WARNING: this deletes and rebuilds UMA_inputs/ — copy finished job dirs out first
 
 # Submit all jobs
 perl submit_allslurm_sh.pl
@@ -151,6 +151,6 @@ both → 500.
 | check_UMAjobs.pl | Monitor job status (Done/Running/Dead) |
 | submit_sh4allDead.pl | Resubmit failed jobs |
 | plot_thermo.py | Generates `thermo_summary.png` per job dir (run at job end) |
-| mustRead.md | Detailed gptfakeQE.py manual |
+| mustRead.md | Detailed gptfakeQE.py manual (lives in `scripts/`, not the repo root) |
 | docs/theory-level.md | Evidence log: one-task policy, oc25 domain, head comparison |
 | docs/RUNBOOK.md | Symptom → action triage table |

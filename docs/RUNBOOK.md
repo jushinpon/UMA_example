@@ -7,6 +7,7 @@ PBC Handling, Health Guards) before using this table.
 
 | Symptom | Cause | Action |
 |---|---|---|
+| `UMA_inputs/` (or a job dir) emptied after re-running `arrange_data4UMA.pl` | the `.pl` starts with `rm -rf $out_folder/*-UMA` and re-creates every job folder | By design. Copy finished job dirs elsewhere first; regenerated results are NOT recoverable. |
 | `ZeroDivisionError ... get_temperature` during OPT-1 | all atoms fixed → dof = 0 | **Fixed** (dof==0 → 0.0). If seen, the repo predates the fix — `git pull`. |
 | Cell-assert failure right after OPT-2 or EQ | atoms crossed a **periodic** boundary; ASE MD never wraps | **Fixed** (wrap periodic axes only). If seen, `git pull`. |
 | `[EQ-MD]/[PROD-MD] divergence at step N: E=... T=... vol=...` | one bad UMA force dissociated the system | Expected abort. Frames before N are still valid, but the run is unusable — fix the cause (bad structure/params) and rerun. Never train on a diverged partial run. |

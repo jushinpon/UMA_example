@@ -72,26 +72,32 @@ done
 | 參數 | Default | 說明 | 問使用者 |
 |------|---------|------|----------|
 | `$model` | `uma-s-1p2p1` | UMA 模型 | 要用 small 還是 medium？ |
-| `$task` | `omat` | FairChem task | **提案資料集固定 `oc25`**(見下方「單一理論層級」原則) |
-| `@tempw` | `(300)` | 溫度 (K) | 要跑哪些溫度？ |
-| `@press` | `(0)` | 壓力 (GPa) | 要跑哪些壓力？ |
+| `$task` | `oc25` | FairChem task | **提案資料集固定 `oc25`**(見下方「單一理論層級」原則) |
+| `@tempw` | `(300)` | **只影響資料夾名稱** `-T300`,不改任何 MD 溫度 | 只是標籤,通常不用改 |
+| `@press` | `(0)` | **只影響資料夾名稱** `-P0`,不改任何 MD 壓力 | 只是標籤,通常不用改 |
 | `$opt1_steps` | `250` | OPT-1 步數 | 需要調整嗎？ |
 | `$opt1_fmax` | `0.1` | OPT-1 收斂 threshold (eV/A) | |
 | `$opt2_steps` | `250` | OPT-2 步數 | |
 | `$opt2_fmax` | `0.05` | OPT-2 收斂 threshold (eV/A) | |
-| `$npt_steps` | `250` | MD 步數 (0=SCF only) | |
-| `$eq_steps` | `10000` | Eq MD 步數 | 與 prod 等長(repo 預設 500,培訓改 10000) |
+| `$npt_steps` | `250` | **legacy:gptfakeQE.py 解析但不使用** | 不用改(保持 ≤999) |
+| `$eq_steps` | `500` | Eq MD 步數 | 提案用 10000(與 prod 等長) |
 | `$eq_temp` | `10` | Eq 溫度 (K) | 全類型 10（2026-10-22 起的新系統；既有 54 個 job 為 300） |
 | `$eq_press` | `0` | Eq 壓力 (GPa) | 全類型 0 |
 | `$eq_timestep` | 見類別表 | Eq timestep (fs) | 與 prod_timestep 相同 |
 | `$prod_steps` | `10000` | Prod MD 步數 | 配 freq=20 → 500 幀 |
 | `$prod_low` | `10` | Prod MD 起始溫度 (K) | 全類型 10（2026-10-22 起的新系統；既有 job 為 300） |
-| `$prod_high` | `600` | Prod MD 終止溫度 (K) | 依類別表(360–900 K) |
+| `$prod_high` | `360` | Prod MD 終止溫度 (K) | 依類別表(360–900 K) |
 | `$prod_press` | `0` | Prod 壓力 (GPa) | 全類型 0 |
 | `$prod_timestep` | 見類別表 | Prod timestep (fs) | 金屬 2.0 / 共價 1.5 / 含水 1.0 |
 | `$prod_freq` | `20` | 輸出頻率 | 10000/20 = **500**（末結構無能量/力，轉檔時丟棄） |
 | `$do_supercell` | `0` | 自動 supercell | 納米粒子建議 1 |
-| `($cx,$cy,$cz)` | `(0,0,0)` | Cell DOF | bulk: 1,1,1; surface: 1,1,0 |
+| `($bulk_cx,$bulk_cy,$bulk_cz)` | `(1,1,1)` | Cell DOF：路徑**不含** `surface` 的檔案 | bulk 1,1,1；cluster 0,0,0 |
+| `($surface_cx,$surface_cy,$surface_cz)` | `(0,0,0)` | Cell DOF：路徑**含** `surface` 的檔案 | surface 系列 1,1,0 |
+
+> **DOF 三連只由路徑決定**：`.pl` 只判斷 `if ($file =~ /surface/)`。因此
+> `surface/`、`surface_wet/`、`surface_pcet/` 走 `$surface_c*`;`bulk/`、`cluster/`、
+> `solvent/` **全部**走 `$bulk_c*`。cluster(0,0,0)與 solvent(1,1,1)不能在同一輪裡跑,
+> 要分開執行(或把資料夾改名讓它落到另一組)。
 
 ### 單一理論層級原則(必須)
 
@@ -135,6 +141,12 @@ opt1/opt2/npt 用 repo 預設 250 步。
 # 修改前先備份
 cp ~/UMA_example/scripts/arrange_data4UMA.pl ~/UMA_example/scripts/arrange_data4UMA.pl.bak
 ```
+
+> **提案自動化**:跑 `uma_auto.py arrange-pass <class>` 時,這一步(備份 + 改參數)由腳本
+> 自動完成(參數來自 `category_params.py`),不需要手改。手改只用於單獨/臨時執行。
+>
+> ⚠️ `.pl` 執行時會先 `rm -rf $out_folder/*-UMA` 再重建,**已完成 job 的目錄會一併消失**。
+> 重跑前先把要保留的 job 目錄搬走。
 
 **確認事項：**
 - [ ] 參數已正確寫入 .pl 檔案
