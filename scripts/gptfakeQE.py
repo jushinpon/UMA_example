@@ -368,7 +368,9 @@ def write_fake_qe_input(filename, atoms, calculation, title, nstep, dt_fs, model
         pos = atoms.get_positions()
         syms = atoms.get_chemical_symbols()
         for s, p in zip(syms, pos):
-            f.write(f" {s} {p[0]:.9f} {p[1]:.9f} {p[2]:.9f}\n")
+            # No leading blank: DFTout2npy_QE.pl parses these with ^\w+\s+ and
+            # would silently drop the whole input structure otherwise.
+            f.write(f"{s:<6}{p[0]:20.10f}{p[1]:20.10f}{p[2]:20.10f}\n")
         f.write("CELL_PARAMETERS {angstrom}\n")
         for row in atoms.get_cell():
             f.write(f" {row[0]:.9f} {row[1]:.9f} {row[2]:.9f}\n")
@@ -389,54 +391,73 @@ def init_fake_qe_output(filename, input_filename, atoms, ntyp, model_name, task_
         f.write(f"     unit-cell volume =    {vol_au:.4f} (a.u.)^3\n")
 
 
-def append_fake_qe_properties(filename, atoms, iteration_num):
+def append_fake_qe_properties(filename, atoms):
+    """Write one Real-QE style energy/force/stress block (no structure).
+
+    Layout copied from a real PWSCF vc-md step so post-processing scripts can
+    anchor on "!    total energy" and read the forces/stress that follow.
+    NOTE: "!    total energy" is the POTENTIAL energy only (no kinetic term).
+    QE type indices follow ATOMIC_SPECIES order, which write_fake_qe_input()
+    emits as sorted(set(symbols)).
+    """
     Ry = units.Ry
     Bohr = units.Bohr
     kbar = 1000.0 * units.bar
     epot_ry = atoms.get_potential_energy() / Ry
-    ekin_ry = atoms.get_kinetic_energy() / Ry
-    etot_ry = epot_ry + ekin_ry
     forces_ry_bohr = atoms.get_forces() * Bohr / Ry
     total_force = float(np.sqrt(np.sum(forces_ry_bohr ** 2)))
     stress_ev_ang3 = atoms.get_stress(voigt=False)
     stress_kbar = -1.0 * stress_ev_ang3 / kbar
     stress_ry_bohr3 = -1.0 * stress_ev_ang3 * (Bohr ** 3) / Ry
     pressure_kbar = float(np.trace(stress_kbar) / 3.0)
+
+    syms = atoms.get_chemical_symbols()
+    species_index = {s: i + 1 for i, s in enumerate(sorted(set(syms)))}
+
+    with open(filename, "a") as f:
+        f.write(f"\n!    total energy              =   {epot_ry:14.8f} Ry\n")
+        f.write(f"     internal energy E=F+TS    =   {epot_ry:14.8f} Ry\n")
+        f.write("\n     Forces acting on atoms (cartesian axes, Ry/au):\n\n")
+        for i, force in enumerate(forces_ry_bohr):
+            f.write(f"     atom{i + 1:5d} type{species_index[syms[i]]:3d}   force = "
+                    f"{force[0]:14.8f}{force[1]:14.8f}{force[2]:14.8f}\n")
+        f.write(f"\n     Total force ={total_force:13.6f}"
+                f"     Total SCF correction ={0.0:13.6f}\n")
+        f.write("\n          total   stress  (Ry/bohr**3)                   (kbar)     P="
+                f"{pressure_kbar:12.2f}\n")
+        for i in range(3):
+            f.write(f"{stress_ry_bohr3[i, 0]:13.8f}{stress_ry_bohr3[i, 1]:13.8f}"
+                    f"{stress_ry_bohr3[i, 2]:13.8f}    "
+                    f"{stress_kbar[i, 0]:12.2f}{stress_kbar[i, 1]:12.2f}{stress_kbar[i, 2]:12.2f}\n")
+
+
+def append_fake_qe_structure(filename, atoms):
+    """Write one Real-QE style structure block (kinetics header + cell + atoms).
+
+    Matches PWSCF stdout order: Ekin/T/Etot, new unit-cell volume, density,
+    CELL_PARAMETERS (angstrom), ATOMIC_POSITIONS (angstrom).
+    """
+    Ry = units.Ry
+    Bohr = units.Bohr
+    epot_ry = atoms.get_potential_energy() / Ry
+    ekin_ry = atoms.get_kinetic_energy() / Ry
+    etot_ry = epot_ry + ekin_ry
     temp_k = float(atoms.get_temperature())
     vol_ang3 = float(atoms.get_volume())
+    vol_au = vol_ang3 / (Bohr ** 3)
     total_mass_amu = float(sum(atoms.get_masses()))
     density_g_cm3 = (total_mass_amu / vol_ang3) * 1.66053907
 
     with open(filename, "a") as f:
-        f.write(f"\n     Entering Dynamics.  Iteration =      {iteration_num}\n\n")
-        f.write(f"!    total energy              =          {epot_ry:.8f} Ry\n")
-        f.write(f"     internal energy E=F+TS    =          {epot_ry:.8f} Ry\n")
-        f.write(f"     Harris-Foulkes estimate   =          {epot_ry:.8f} Ry\n")
-        f.write("\n     Forces acting on atoms (cartesian axes, Ry/au):\n\n")
-        for i, force in enumerate(forces_ry_bohr):
-            f.write(f"     atom    {i+1} type  1   force =      {force[0]:.8f}      {force[1]:.8f}      {force[2]:.8f}\n")
-        f.write(f"\n     Total force =      {total_force:.6f}\n")
-        f.write(f"\n          total   stress  (Ry/bohr**3)                   (kbar)     P=       {pressure_kbar:.2f}\n")
-        for i in range(3):
-            f.write(f"    {stress_ry_bohr3[i,0]:.8f}   {stress_ry_bohr3[i,1]:.8f}   {stress_ry_bohr3[i,2]:.8f}           {stress_kbar[i,0]:.2f}       {stress_kbar[i,1]:.2f}       {stress_kbar[i,2]:.2f}\n")
-        f.write(f"\n     Ekin =      {ekin_ry:.8f} Ry    T =     {temp_k:4.1f} K  Etot =      {etot_ry:.8f}\n")
-        f.write(f"     density =       {density_g_cm3:.5f} g/cm^3\n")
-
-
-def append_fake_qe_structure(filename, atoms):
-    Bohr = units.Bohr
-    vol_ang3 = float(atoms.get_volume())
-    vol_au = vol_ang3 / (Bohr ** 3)
-    with open(filename, "a") as f:
-        f.write(f"\n     new unit-cell volume =   {vol_au:.5f} a.u.^3 (  {vol_ang3:.5f} Ang^3 )\n")
+        f.write(f"\n     Ekin ={ekin_ry:15.8f} Ry    T ={temp_k:7.1f} K  Etot ={etot_ry:18.8f}\n")
+        f.write(f"     new unit-cell volume =  {vol_au:.5f} a.u.^3 (  {vol_ang3:.5f} Ang^3 )\n")
+        f.write(f"     density ={density_g_cm3:13.5f} g/cm^3\n")
         f.write("\nCELL_PARAMETERS (angstrom)\n")
         for row in atoms.get_cell():
-            f.write(f"      {row[0]:.8f}   {row[1]:.8f}   {row[2]:.8f}\n")
+            f.write(f"{row[0]:14.9f}{row[1]:14.9f}{row[2]:14.9f}\n")
         f.write("\nATOMIC_POSITIONS (angstrom)\n")
-        pos = atoms.get_positions()
-        syms = atoms.get_chemical_symbols()
-        for s, p in zip(syms, pos):
-            f.write(f"{s}      {p[0]:.8f}   {p[1]:.8f}   {p[2]:.8f}\n")
+        for s, p in zip(atoms.get_chemical_symbols(), atoms.get_positions()):
+            f.write(f"{s:<6}{p[0]:20.10f}{p[1]:20.10f}{p[2]:20.10f}\n")
         f.write("\n")
 
 
@@ -855,7 +876,7 @@ def main():
     Stationary(final_atoms)
 
     write_lammps_data_ovito_style(os.path.join(OUTPUT_DIR, "000.data"), final_atoms, mass_map, final_types)
-    append_fake_qe_properties(fake_sout, final_atoms, iteration_num=1)
+    append_fake_qe_properties(fake_sout, final_atoms)
 
     if prod_steps == 0:
         append_fake_qe_structure(fake_sout, final_atoms)
@@ -890,16 +911,16 @@ def main():
                          T_K=m["T_K"], P_GPa=m["P_GPa"],
                          vol_A3=m["vol_A3"], density_g_cm3=m["density_g_cm3"])
 
-            # QE output at prod_freq intervals
-            if step % prod_freq == 0:
+            # QE output at prod_freq intervals.  The final step emits the
+            # structure only: Real QE never evaluates energy/forces/stress for
+            # the last configuration (nstep reached -> no further SCF).
+            if step % prod_freq == 0 or step == prod_steps:
                 append_fake_qe_structure(fake_sout, final_atoms)
-                append_fake_qe_properties(fake_sout, final_atoms, iteration_num=qe_output_count + 2)
+                if step != prod_steps:
+                    append_fake_qe_properties(fake_sout, final_atoms)
                 write_lammps_data_ovito_style(os.path.join(OUTPUT_DIR, f"{step:03d}.data"), final_atoms, mass_map, final_types)
                 qe_output_count += 1
 
-        append_fake_qe_structure(fake_sout, final_atoms)
-        with open(fake_sout, "a") as f:
-            f.write("     (NOTE: final structure only; no energy/forces/stress.)\n")
         finalize_fake_qe_output(fake_sout)
         print(f"[PROD-MD] Done. {prod_log.count} steps -> {prod_log.path}. {qe_output_count} QE blocks.")
 
