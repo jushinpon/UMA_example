@@ -33,8 +33,8 @@ my @tempw = (300);
 my @press = (0);
 
 #####YOU NEED TO SET THE FOLLOWING PARAMETERS FOR YOUROWN CASES#####
-my $model = "uma-s-1p1"; #uma-s-1p1 uma-s-2p0 uma-m-1p1 uma-m-2p0
-my $task = "omat";  #omat omdyn
+my $model = "uma-s-1p2p1"; #uma-s-1p1 uma-s-2p0 uma-m-1p1 uma-m-2p0
+my $task = "oc25";  #omat omdyn
 
 # resolve gptfakeQE.py next to this script (not from the current directory)
 my $python_path = Cwd::abs_path(File::Spec->catfile($FindBin::Bin, "gptfakeQE.py"));
@@ -49,19 +49,20 @@ my $do_supercell = 0; # 0 / 1
 
 ## Equilibrium MD (silent, no QE output; set eq_steps=0 to skip)
 my $eq_steps = 500;     # 0 = skip equilibrium MD
-my $eq_temp = 300;      # K
-my $eq_press = 0;       # GPa
-my $eq_timestep = 1.5;  # fs
+my $eq_temp = 10;       # K  (2026-10-22 directive: new systems equilibrate at 10 K;
+                        #     the 54 jobs generated earlier used 300 K and stay as-is)
+my $eq_press = 0.0;       # GPa
+my $eq_timestep = 1.0;  # fs
 
 ## Production MD (with QE output, heating ramp)
-my $prod_steps = 250;     # production MD steps (0 = SCF only)
-my $prod_low = 300;       # K — heating ramp start
-my $prod_high = 600;      # K — heating ramp end
-my $prod_press = 0;       # GPa
-my $prod_timestep = 1.5; # fs, for bulk UMA simulations without covalent bonds, 2.0 fs is recommended, For simulations with molecules or covalent bonds, 1.5 fs is recommended.
-my $prod_freq = 5;       # output frequency: mod(step, prod_freq)==0 writes QE output
+my $prod_steps = 10000;     # production MD steps (0 = SCF only)
+my $prod_low = 10;        # K — heating ramp start (2026-10-22: production starts at 10 K)
+my $prod_high = 360;      # K — heating ramp end
+my $prod_press = 0.0;       # GPa
+my $prod_timestep = 1.0; # fs, for bulk UMA simulations without covalent bonds, 2.0 fs is recommended, For simulations with molecules or covalent bonds, 1.5 fs is recommended.
+my $prod_freq = 20;       # output frequency: mod(step, prod_freq)==0 writes QE output
 
-my ($bulk_cx, $bulk_cy, $bulk_cz) = (0, 0, 0);
+my ($bulk_cx, $bulk_cy, $bulk_cz) = (1, 1, 1);
  
 #You must assign proper surface_cx, surface_cy, surface_cz for surface systems, 0 for not change lengths along that direction.
 #For bulk systems, you can set them to 1,1,1

@@ -18,8 +18,8 @@ PBC Handling, Health Guards) before using this table.
 | Symptom | Cause | Action |
 |---|---|---|
 | `thermo_summary.png` shows empty panels (6 blank axes; "No artists with labels" in `.err`) | old `plot_thermo.py` skipped the commented `#` header, columns became col0..colN | **Fixed**; regenerate: `python scripts/plot_thermo.py <job_dir>` (needs `fairchem` env). |
-| `!`-block count ≠ 501 | wrong `prod_steps`/`prod_freq` in the job `.sh` | Convention: `prod_steps=10000`, `prod_freq=20` → 1 initial + 10000/20 = **501**. Check the `.sh` arg line and rerun. |
-| `data_files/` count ≠ 501 | ditto | `ls data_files \| wc -l` → 501 per finished job. |
+| `!`-block count ≠ 500 | wrong `prod_steps`/`prod_freq` in the job `.sh` | Convention: `prod_steps=10000`, `prod_freq=20` → **500** frames (`prod_steps//prod_freq`; the trailing structure at step 10000 carries no energy/forces and the converter drops it). Check the `.sh` arg line and rerun. |
+| `data_files/` count ≠ 500 | ditto | `ls data_files \| wc -l` → 500 per finished job. |
 | Coordinates outside the box in a snapshot | ASE MD does not wrap; unwrapped coords are normal in periodic runs | Do not hand-edit; wrap at conversion time if the consumer needs it. |
 | PBC flag looks wrong | geometry near the 6.0 Å vacuum-gap threshold | Check the `[PBC] ...` log line; force a setting with env `UMA_PBC="T T F"` (per axis) and rerun. |
 | `QEout_plot.png` / `sout_data.csv` missing or stale | written by **external** `/opt/qe_perl/QEout_analysis.pl` at job end, not by repo code | Re-run the perl step or accept repo plots (`thermo_summary.png`, `*_eq_profile.png`) as the authoritative view. |

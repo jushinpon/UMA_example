@@ -81,15 +81,15 @@ done
 | `$opt2_fmax` | `0.05` | OPT-2 收斂 threshold (eV/A) | |
 | `$npt_steps` | `250` | MD 步數 (0=SCF only) | |
 | `$eq_steps` | `10000` | Eq MD 步數 | 與 prod 等長(repo 預設 500,培訓改 10000) |
-| `$eq_temp` | `300` | Eq 溫度 (K) | 全類型 300 |
+| `$eq_temp` | `10` | Eq 溫度 (K) | 全類型 10（2026-10-22 起的新系統；既有 54 個 job 為 300） |
 | `$eq_press` | `0` | Eq 壓力 (GPa) | 全類型 0 |
 | `$eq_timestep` | 見類別表 | Eq timestep (fs) | 與 prod_timestep 相同 |
-| `$prod_steps` | `10000` | Prod MD 步數 | 配 freq=20 → 501 幀 |
-| `$prod_low` | `300` | Prod MD 起始溫度 (K) | 全類型 300 |
+| `$prod_steps` | `10000` | Prod MD 步數 | 配 freq=20 → 500 幀 |
+| `$prod_low` | `10` | Prod MD 起始溫度 (K) | 全類型 10（2026-10-22 起的新系統；既有 job 為 300） |
 | `$prod_high` | `600` | Prod MD 終止溫度 (K) | 依類別表(360–900 K) |
 | `$prod_press` | `0` | Prod 壓力 (GPa) | 全類型 0 |
 | `$prod_timestep` | 見類別表 | Prod timestep (fs) | 金屬 2.0 / 共價 1.5 / 含水 1.0 |
-| `$prod_freq` | `20` | 輸出頻率 | 10000/20 = 500 + 初始幀 = **501** |
+| `$prod_freq` | `20` | 輸出頻率 | 10000/20 = **500**（末結構無能量/力，轉檔時丟棄） |
 | `$do_supercell` | `0` | 自動 supercell | 納米粒子建議 1 |
 | `($cx,$cy,$cz)` | `(0,0,0)` | Cell DOF | bulk: 1,1,1; surface: 1,1,0 |
 
@@ -102,19 +102,21 @@ done
 
 ### 每類資料的建議參數(含 EQ/PROD)
 
-所有類型共通:`eq_steps=10000`、`eq_temp=300`、`eq_press=0`、
+所有類型共通:`eq_steps=10000`、`eq_temp=10`、`eq_press=0`、
 `prod_steps=10000`、`prod_press=0`、`prod_freq=20`
-→ 每 job **501 幀**(1 個初始幀 + 10000/20 = 500 個生產幀),
-等同 QE DFT-MD 的 501 幀慣例。opt1/opt2/npt 用 repo 預設 250 步。
+→ 每 job **500 幀**(`prod_steps/prod_freq`;檔尾第 10000 步的結構**沒有**能量/力,
+真 QE 不會對最後構型再跑 SCF,轉檔時丟棄)。
+新系統自 2026-10-22 起 eq 與 prod **都從 10 K 起跑**(既有 54 個 job 為 300 K,不重跑)。
+opt1/opt2/npt 用 repo 預設 250 步。
 
 | 類型(資料夾) | timestep (fs) | prod ramp (K) | cell DOF (bulk / surface) | do_supercell |
 |---|---|---|---|---|
-| bulk(fcc 金屬) | 2.0 | 300→900 | 1,1,1 / 0,0,0 | 0 |
-| cluster(奈米粒子) | 2.0 | 300→600 | 0,0,0 / 0,0,0 | **1** |
-| surface(清潔 slab) | 1.5 | 300→600 | 0,0,0 / 1,1,0 | 0 |
-| surface_ads(吸附物覆蓋) | 1.5 | 300→500 | 0,0,0 / 1,1,0 | 0 |
-| surface_wet(wet / PCET / 界面) | 1.0 | 300→400 | 0,0,0 / 1,1,0 | 0 |
-| solvent(水 / 水+離子) | 1.0 | 300→360 | 1,1,1 / 0,0,0 | 0 |
+| bulk(fcc 金屬) | 2.0 | 10→900 | 1,1,1 / 0,0,0 | 0 |
+| cluster(奈米粒子) | 2.0 | 10→600 | 0,0,0 / 0,0,0 | **1** |
+| surface(清潔 slab) | 1.5 | 10→600 | 0,0,0 / 1,1,0 | 0 |
+| surface_ads(吸附物覆蓋) | 1.5 | 10→500 | 0,0,0 / 1,1,0 | 0 |
+| surface_wet(wet / PCET / 界面) | 1.0 | 10→400 | 0,0,0 / 1,1,0 | 0 |
+| solvent(水 / 水+離子) | 1.0 | 10→360 | 1,1,1 / 0,0,0 | 0 |
 
 每類的科學理由(ramp 上限、timestep、cell DOF)見提案 repo
 `deepmd/scripts/uma_pipeline/category_params.py` 內各類別的 `reason` 註解。
@@ -183,15 +185,15 @@ perl submit_allslurm_sh.pl
 job 標記完成後,每個 job 目錄必須滿足(以 `prod_steps=10000`、`prod_freq=20` 慣例):
 
 ```bash
-ls <job_dir>/data_files/*.data | wc -l    # → 501
-grep -c "^!" <job_dir>/<name>.sout        # → 501
+ls <job_dir>/data_files/*.data | wc -l    # → 500
+grep -c "^!" <job_dir>/<name>.sout        # → 500
 ```
 
 - `thermo_summary.png` 必須有曲線(空白面板 → `plot_thermo.py` 過時,見 `docs/RUNBOOK.md`)
 - `<name>.err` 不得有 traceback;`.sout` 不得出現 divergence 中止
 
 **確認事項：**
-- [ ] 501 / 501 通過
+- [ ] 500 / 500 通過
 - [ ] 0 traceback
 
 ---
@@ -215,5 +217,5 @@ Step 3: 問參數 → 展示 default，詢問修改
 Step 4: 改 .pl → 備份 + 修改
 Step 5: 生成 → perl arrange_data4UMA.pl
 Step 6: 確認 → 報告數量 + 等使用者說 OK → sbatch
-Step 7: 驗收 → data_files=501、grep -c '^!'=501、.err 無 traceback
+Step 7: 驗收 → data_files=500、grep -c '^!'=500、.err 無 traceback
 ```

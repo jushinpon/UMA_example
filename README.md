@@ -114,11 +114,11 @@ perl arrange_data4UMA.pl
 | `$npt_steps` | `250` | Production MD steps (0 = SCF only) |
 | `$do_supercell` | `0` | Auto-build supercell if cell < 12 A |
 | `$eq_steps` | `500` | Equilibrium MD steps (0 = skip eq) |
-| `$eq_temp` | `300` | Equilibrium temperature (K) |
+| `$eq_temp` | `10` | Equilibrium temperature (K) — new systems since 2026-10-22 |
 | `$eq_press` | `0` | Equilibrium pressure (GPa) |
 | `$eq_timestep` | `1.5` | Equilibrium MD timestep (fs) |
 | `$prod_steps` | `250` | Production MD steps (0 = SCF only) |
-| `$prod_low` | `300` | Production starting temperature (K) — heating ramp low |
+| `$prod_low` | `10` | Production starting temperature (K) — heating ramp low (new systems since 2026-10-22) |
 | `$prod_high` | `600` | Production ending temperature (K) — heating ramp high |
 | `$prod_press` | `0` | Production pressure (GPa) |
 | `$prod_timestep` | `1.5` | Production MD timestep (fs) |
@@ -132,9 +132,9 @@ perl arrange_data4UMA.pl
 > - Nanowire along z: use `0,0,1`
 
 > **DeePMD 訓練慣例(提案資料集):** 單一 `model=uma-s-1p2p1` + `task=oc25`;
-> `eq_steps=10000`、`prod_steps=10000`、`prod_freq=20` → 每 job **501 幀**
-> (1 初始 + 500 生產),等同 QE DFT-MD 慣例。每類資料的完整建議參數
-> (含 EQ/PROD)見 `AGENTS_WORKFLOW.md` Step 3。
+> `eq_steps=10000`、`eq_temp=10`、`prod_steps=10000`、`prod_freq=20`
+> → 每 job **500 幀**(`prod_steps/prod_freq`;末結構無能量/力,轉檔時丟棄)。
+> 每類資料的完整建議參數 (含 EQ/PROD)見 `AGENTS_WORKFLOW.md` Step 3。
 
 ### Step 2: Submit All Jobs
 
@@ -329,13 +329,14 @@ For input `MyAlloy-T300-P0.data`:
 The `.sout` file mimics real Quantum ESPRESSO output:
 
 1. **Iteration=1 block** — energy, forces, stress for initial structure (`000.data`)
-2. **Energy blocks** — 1 initial block (Iteration=1) + prod_steps/prod_freq loop blocks with "! total energy" markers (at steps where mod(step, prod_freq)==0)
+2. **Energy blocks** — one `Iteration=1` block for the input structure, then one block per written step **except the last** (`prod_steps // prod_freq` blocks in total)
 3. **Final geometry** — `CELL_PARAMETERS` and `ATOMIC_POSITIONS` for the last step, but **no** `! total energy` block
 
-> **Rule:** loop blocks = `prod_steps // prod_freq`; total `!` blocks = that + 1
-> (the initial Iteration=1 block). DeePMD convention `10000/20` → **501 frames**
-> per job (1 initial + 500 production) — the same 501-frame accounting as a
-> QE DFT-MD run.
+> **Rule:** the first `!` block is the `Iteration=1` block that pairs with the
+> `.in` S0 structure; the loop writes a structure at every `mod(step, prod_freq)==0`
+> and an energy block for all of them **except** the final step (`step == prod_steps`),
+> which real QE never SCFs. Total `!` blocks = `prod_steps // prod_freq`;
+> DeePMD convention `10000/20` → **500 frames** per job.
 
 > **External artifacts:** `QEout_plot.png` and `sout_data.csv` in each job dir
 > are written by `/opt/qe_perl/QEout_analysis.pl` (invoked at job end) — not by

@@ -117,14 +117,14 @@ With the DeePMD convention `prod_steps=10000`, `prod_freq=20`:
 
 | Artifact | Expected |
 |---|---|
-| `data_files/*.data` | **501** snapshots (1 initial + 10000/20) |
-| `*.sout` | **501** `!` energy blocks (same count) |
+| `data_files/*.data` | **500** snapshots (`prod_steps/prod_freq`) |
+| `*.sout` | **500** `!` energy blocks (same count) |
 | `stage_*.txt` | opt1/opt2/eq/prod logs; eq/prod start with `# step ...` header |
 | `thermo_summary.png` | 6 panels **with curves** (blank panels = stale plot_thermo.py, see docs/RUNBOOK.md) |
 | `*_eq_profile.png`, `QEout_plot.png`, `sout_data.csv` | eq 4-panel from the engine; QEout pair from external `/opt/qe_perl/QEout_analysis.pl` |
 
 Quick verify: `ls <job>/data_files | wc -l` and `grep -c "^!" <job>/<name>.sout`
-both → 501.
+both → 500.
 
 ## Parameter Policy for DeePMD training datasets
 
