@@ -9,6 +9,11 @@ __pycache__/
 # local backups (timestamped, e.g. gptfakeQE.py.bak20261022)
 *.bak*
 *.orig
+*.paramsbak
+# user datasets: keep the .data format, never the 54 inputs themselves
+categorized_data4UMA/*/
+# job status dumps from check_UMAjobs.pl
+scripts/UMAjobs_status/
 # run logs
 *.out
 *.err
